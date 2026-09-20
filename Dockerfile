@@ -17,7 +17,7 @@ ARG BASE_IMAGE=ghcr.io/itzg/minecraft-server:2026.9.1-java25@sha256:e8640538dac5
 # Downloads every jar named in plugins.lock and verifies it. A checksum
 # mismatch fails the build, so the jars in an image tag are exactly the ones
 # the lock file describes.
-FROM docker.io/library/alpine:3.22 AS fetch
+FROM docker.io/library/alpine:3.24 AS fetch
 RUN apk add --no-cache curl
 WORKDIR /jars
 COPY plugins.lock ./

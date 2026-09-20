@@ -26,16 +26,16 @@ jobs:
         variant: [oneblock, skyblock]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Build for the runner's own architecture first and smoke-test that.
       # Pushing an image whose plugins silently failed to load is the exact
       # failure this repo exists to prevent, so nothing is published until a
       # real server has come up with every addon ENABLED.
       - name: Build test image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: ${{ matrix.variant }}
@@ -53,7 +53,7 @@ jobs:
 
       - name: Log in to ghcr.io
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -76,7 +76,7 @@ jobs:
       - name: Image metadata
         if: github.event_name != 'pull_request'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-${{ matrix.variant }}
           # {{sha}} is the short commit sha, so <mc>-<sha> is unique per build
@@ -96,7 +96,7 @@ jobs:
       # arch-independent jars and YAML, so both come from the same build.
       - name: Build and push
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: ${{ matrix.variant }}
