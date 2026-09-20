@@ -1,0 +1,11 @@
+# See common/plugins/BentoBox/config.yml for how seeding works.
+island:
+  # Without this a new player lands in the leftover vanilla overworld with no
+  # island and no idea what to do. With it, joining creates their island and
+  # puts them on it. Safe here because each image runs exactly one game mode --
+  # the upstream warning about simultaneous creation applies to servers running
+  # several game modes at once.
+  create-island-on-first-login:
+    enable: true
+  # Default is 4 (owner + 3). Raised so every sibling can co-op on one island.
+  max-team-size: 6

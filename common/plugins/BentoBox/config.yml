@@ -1,0 +1,8 @@
+# Seed config seeded into a fresh /data volume on first run only.
+# itzg's sync leaves it alone once the server has rewritten it, so this is a
+# starting point and not a cage -- edit in-game or in the PVC freely.
+# BentoBox fills in every key not named here with its own default.
+general:
+  # No economy plugin ships in this image, so money features would be dead
+  # weight. BentoBox would auto-disable them anyway; this makes it explicit.
+  use-economy: false

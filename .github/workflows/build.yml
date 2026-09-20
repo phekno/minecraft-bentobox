@@ -1,0 +1,107 @@
+---
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [oneblock, skyblock]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build for the runner's own architecture first and smoke-test that.
+      # Pushing an image whose plugins silently failed to load is the exact
+      # failure this repo exists to prevent, so nothing is published until a
+      # real server has come up with every addon ENABLED.
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.variant }}
+          platforms: linux/amd64
+          load: true
+          tags: test-${{ matrix.variant }}:ci
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+
+      - name: Smoke test
+        run: ./test/smoke.sh test-${{ matrix.variant }}:ci ${{ matrix.variant }}
+        env:
+          CONTAINER_ENGINE: docker
+          TIMEOUT_SECS: "420"
+
+      - name: Log in to ghcr.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags carry what is actually inside the image, and every build gets a
+      # tag nothing else will ever reuse. Values come from the repo's own
+      # files, never from event payloads.
+      - name: Read pinned versions
+        if: github.event_name != 'pull_request'
+        id: vers
+        run: |
+          mc=$(awk -F= '/^    VERSION=/ {gsub(/[ \\]/,"",$2); print $2}' Dockerfile)
+          bb=$(awk '$1=="core" && $2=="BentoBox" {print $3}' plugins.lock)
+          [ -n "$mc" ] && [ -n "$bb" ] || { echo "could not read versions" >&2; exit 1; }
+          echo "mc=$mc" >>"$GITHUB_OUTPUT"
+          echo "bentobox=$bb" >>"$GITHUB_OUTPUT"
+          echo "plugins=$(awk '!/^#/{printf "%s=%s ", $2, $3}' plugins.lock)" >>"$GITHUB_OUTPUT"
+
+      - name: Image metadata
+        if: github.event_name != 'pull_request'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-${{ matrix.variant }}
+          # {{sha}} is the short commit sha, so <mc>-<sha> is unique per build
+          # and never moves. sha-<long> is the same guarantee, spelled out.
+          # latest is the only mutable tag; pin a digest in Flux.
+          tags: |
+            type=raw,value=${{ steps.vers.outputs.mc }}-{{sha}}
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=minecraft-${{ matrix.variant }}
+            org.opencontainers.image.description=Minecraft ${{ matrix.variant }} server on Paper ${{ steps.vers.outputs.mc }} with BentoBox ${{ steps.vers.outputs.bentobox }}
+            com.phekno.minecraft.version=${{ steps.vers.outputs.mc }}
+            com.phekno.minecraft.plugins=${{ steps.vers.outputs.plugins }}
+
+      # The cluster is amd64 and the dev machine is arm64; the layers are
+      # arch-independent jars and YAML, so both come from the same build.
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.variant }}
