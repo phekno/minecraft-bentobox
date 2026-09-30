@@ -52,7 +52,10 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # A fine-grained PAT (contents + pull-requests write on this repo).
+          # GITHUB_TOKEN cannot open PRs here, and PRs it opens would not
+          # trigger build.yml, so the smoke test would never run on them.
+          token: ${{ secrets.PLUGIN_UPDATE_TOKEN }}
           branch: chore/update-plugins
           title: "chore: update BentoBox plugin versions"
           body-path: pr-body.md
