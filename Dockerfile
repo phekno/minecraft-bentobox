@@ -51,6 +51,17 @@ ENV TYPE=PAPER \
     VERSION=26.2 \
     USE_AIKAR_FLAGS=true
 
+# The /plugins sync only adds files, and each version has its own jar name,
+# so an upgrade left BentoBox-3.23.0.jar next to BentoBox-3.23.1.jar on the
+# volume. Paper then picks either ("Ambiguous plugin name") and BentoBox
+# rejects the second copy of each addon. Delete every jar under
+# /data/plugins before the sync so the volume holds exactly the jars in
+# this image. Depth 3 reaches plugins/BentoBox/addons/*.jar. Only *.jar is
+# matched, so configs and island databases are left alone.
+ENV REMOVE_OLD_MODS=true \
+    REMOVE_OLD_MODS_INCLUDE=*.jar \
+    REMOVE_OLD_MODS_DEPTH=3
+
 # EULA is deliberately not set. Accepting it is the operator's act and belongs
 # in the deployment, not baked into a published image.
 
